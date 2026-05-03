@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AcuTrack — นำเข้าข้อมูล</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<style>
+  body{font-family:sans-serif;max-width:600px;margin:40px auto;padding:20px;background:#f8fafc;}
+  h1{color:#0891b2;}
+  #log{background:#1e293b;color:#94a3b8;border-radius:12px;padding:20px;height:400px;overflow-y:auto;font-family:monospace;font-size:13px;margin-top:20px;}
+  .ok{color:#34d399;} .err{color:#f87171;} .info{color:#60a5fa;}
+  button{background:#0891b2;color:white;border:none;padding:12px 28px;border-radius:8px;font-size:16px;cursor:pointer;margin-top:16px;}
+  button:disabled{background:#94a3b8;cursor:not-allowed;}
+  #progress{margin-top:12px;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;}
+  #bar{height:100%;background:#0891b2;width:0%;transition:width 0.3s;}
+</style>
+</head>
+<body>
+<h1>📥 AcuTrack — นำเข้าข้อมูล</h1>
+<p>กดปุ่มด้านล่างเพื่อนำเข้าข้อมูลทั้งหมดไปยัง Firebase</p>
+<p style="color:#64748b;font-size:13px;">📌 84 บันทึกรายวัน + 7 เดือนรายได้</p>
+<button id="btn" onclick="startImport()">🚀 เริ่มนำเข้าข้อมูล</button>
+<div id="progress"><div id="bar"></div></div>
+<div id="log"></div>
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDe751orq4HHy6VVwYmkSeV_DiKU6sw8IM",
+  authDomain: "acutrack-237e2.firebaseapp.com",
+  projectId: "acutrack-237e2",
+  storageBucket: "acutrack-237e2.firebasestorage.app",
+  messagingSenderId: "939281324017",
+  appId: "1:939281324017:web:fc17c8c1d73835442a9650"
+};
+
+const IMPORT_DATA = {"dailyRecords": [{"date": "2025-09-01", "n13": 0, "n25": 15, "n40": 50, "n50": 45, "n75": 0, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-09-08", "n13": 0, "n25": 20, "n40": 70, "n50": 40, "n75": 10, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-09-10", "n13": 0, "n25": 45, "n40": 75, "n50": 10, "n75": 15, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-09-11", "n13": 20, "n25": 25, "n40": 65, "n50": 10, "n75": 5, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-09-15", "n13": 25, "n25": 20, "n40": 55, "n50": 25, "n75": 15, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-09-17", "n13": 30, "n25": 35, "n40": 70, "n50": 10, "n75": 15, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-09-18", "n13": 20, "n25": 45, "n40": 65, "n50": 15, "n75": 15, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-09-22", "n13": 0, "n25": 15, "n40": 65, "n50": 15, "n75": 5, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-09-24", "n13": 20, "n25": 60, "n40": 85, "n50": 5, "n75": 5, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-09-25", "n13": 0, "n25": 15, "n40": 70, "n50": 60, "n75": 20, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-09-29", "n13": 0, "n25": 10, "n40": 90, "n50": 35, "n75": 25, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-10-01", "n13": 0, "n25": 15, "n40": 55, "n50": 35, "n75": 30, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-10-02", "n13": 10, "n25": 20, "n40": 115, "n50": 10, "n75": 25, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-10-06", "n13": 40, "n25": 55, "n40": 80, "n50": 10, "n75": 25, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-10-08", "n13": 0, "n25": 10, "n40": 100, "n50": 20, "n75": 10, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-10-09", "n13": 0, "n25": 40, "n40": 45, "n50": 30, "n75": 20, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-10-15", "n13": 0, "n25": 10, "n40": 40, "n50": 15, "n75": 40, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-10-16", "n13": 0, "n25": 15, "n40": 75, "n50": 20, "n75": 30, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-10-27", "n13": 0, "n25": 5, "n40": 30, "n50": 20, "n75": 25, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-10-29", "n13": 0, "n25": 30, "n40": 55, "n50": 20, "n75": 5, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-10-30", "n13": 0, "n25": 15, "n40": 90, "n50": 20, "n75": 35, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-11-05", "n13": 15, "n25": 25, "n40": 105, "n50": 25, "n75": 50, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-11-06", "n13": 0, "n25": 15, "n40": 45, "n50": 0, "n75": 45, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-11-10", "n13": 20, "n25": 35, "n40": 45, "n50": 25, "n75": 10, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-11-12", "n13": 0, "n25": 5, "n40": 60, "n50": 0, "n75": 0, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-11-13", "n13": 0, "n25": 35, "n40": 85, "n50": 0, "n75": 40, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-11-17", "n13": 0, "n25": 0, "n40": 25, "n50": 30, "n75": 20, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-11-19", "n13": 0, "n25": 5, "n40": 30, "n50": 50, "n75": 0, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-11-20", "n13": 0, "n25": 5, "n40": 45, "n50": 55, "n75": 20, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-11-24", "n13": 0, "n25": 35, "n40": 10, "n50": 95, "n75": 55, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-11-26", "n13": 0, "n25": 25, "n40": 65, "n50": 60, "n75": 15, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-11-27", "n13": 0, "n25": 25, "n40": 95, "n50": 25, "n75": 40, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-12-01", "n13": 0, "n25": 85, "n40": 45, "n50": 20, "n75": 50, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-12-03", "n13": 25, "n25": 35, "n40": 90, "n50": 50, "n75": 0, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-12-04", "n13": 0, "n25": 35, "n40": 90, "n50": 70, "n75": 20, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-12-11", "n13": 0, "n25": 70, "n40": 65, "n50": 25, "n75": 30, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-12-15", "n13": 0, "n25": 15, "n40": 40, "n50": 75, "n75": 40, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-12-22", "n13": 0, "n25": 15, "n40": 25, "n50": 65, "n75": 15, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-12-24", "n13": 20, "n25": 10, "n40": 55, "n50": 65, "n75": 55, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-12-25", "n13": 0, "n25": 45, "n40": 80, "n50": 45, "n75": 0, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2025-12-29", "n13": 0, "n25": 20, "n40": 40, "n50": 65, "n75": 30, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-01-05", "n13": 0, "n25": 50, "n40": 75, "n50": 40, "n75": 0, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-01-07", "n13": 0, "n25": 30, "n40": 45, "n50": 15, "n75": 0, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-01-08", "n13": 0, "n25": 5, "n40": 65, "n50": 45, "n75": 20, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-01-12", "n13": 25, "n25": 45, "n40": 40, "n50": 30, "n75": 0, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-01-14", "n13": 0, "n25": 25, "n40": 70, "n50": 5, "n75": 10, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-01-15", "n13": 0, "n25": 60, "n40": 140, "n50": 30, "n75": 10, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-01-19", "n13": 0, "n25": 5, "n40": 110, "n50": 30, "n75": 40, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-01-21", "n13": 0, "n25": 55, "n40": 60, "n50": 30, "n75": 30, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-01-26", "n13": 0, "n25": 5, "n40": 30, "n50": 65, "n75": 35, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-01-28", "n13": 0, "n25": 50, "n40": 90, "n50": 20, "n75": 15, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-01-29", "n13": 0, "n25": 55, "n40": 95, "n50": 20, "n75": 15, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-02-02", "n13": 0, "n25": 0, "n40": 80, "n50": 0, "n75": 40, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-02-04", "n13": 0, "n25": 30, "n40": 100, "n50": 45, "n75": 30, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-02-05", "n13": 0, "n25": 50, "n40": 85, "n50": 25, "n75": 35, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-02-09", "n13": 0, "n25": 60, "n40": 35, "n50": 65, "n75": 35, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-02-11", "n13": 0, "n25": 60, "n40": 65, "n50": 5, "n75": 30, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-02-12", "n13": 0, "n25": 15, "n40": 40, "n50": 35, "n75": 25, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-02-16", "n13": 0, "n25": 20, "n40": 80, "n50": 5, "n75": 50, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-02-18", "n13": 0, "n25": 60, "n40": 35, "n50": 15, "n75": 20, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-02-19", "n13": 0, "n25": 15, "n40": 15, "n50": 30, "n75": 20, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-02-25", "n13": 0, "n25": 15, "n40": 55, "n50": 30, "n75": 10, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-02-26", "n13": 0, "n25": 50, "n40": 100, "n50": 15, "n75": 20, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-03-02", "n13": 0, "n25": 20, "n40": 85, "n50": 60, "n75": 30, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-03-04", "n13": 0, "n25": 10, "n40": 20, "n50": 20, "n75": 25, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-03-05", "n13": 0, "n25": 10, "n40": 90, "n50": 0, "n75": 45, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-03-09", "n13": 0, "n25": 5, "n40": 80, "n50": 35, "n75": 75, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-03-11", "n13": 0, "n25": 35, "n40": 30, "n50": 50, "n75": 35, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-03-12", "n13": 0, "n25": 10, "n40": 45, "n50": 25, "n75": 5, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-03-16", "n13": 0, "n25": 10, "n40": 105, "n50": 10, "n75": 50, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-03-18", "n13": 0, "n25": 35, "n40": 40, "n50": 20, "n75": 0, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-03-19", "n13": 15, "n25": 15, "n40": 5, "n50": 30, "n75": 25, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-03-23", "n13": 0, "n25": 35, "n40": 60, "n50": 0, "n75": 10, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-03-25", "n13": 0, "n25": 25, "n40": 20, "n50": 45, "n75": 25, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-03-26", "n13": 0, "n25": 0, "n40": 65, "n50": 20, "n75": 0, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-03-30", "n13": 0, "n25": 55, "n40": 60, "n50": 75, "n75": 60, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-04-01", "n13": 0, "n25": 25, "n40": 20, "n50": 25, "n75": 25, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-04-02", "n13": 0, "n25": 25, "n40": 75, "n50": 35, "n75": 10, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-04-08", "n13": 0, "n25": 35, "n40": 80, "n50": 85, "n75": 30, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-04-09", "n13": 0, "n25": 30, "n40": 35, "n50": 170, "n75": 30, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-04-20", "n13": 0, "n25": 10, "n40": 70, "n50": 65, "n75": 50, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-04-22", "n13": 0, "n25": 50, "n40": 75, "n50": 55, "n75": 30, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-04-23", "n13": 0, "n25": 45, "n40": 80, "n50": 20, "n75": 45, "updatedAt": "2026-05-03T00:00:00.000Z"}, {"date": "2026-04-29", "n13": 0, "n25": 40, "n40": 30, "n50": 60, "n75": 25, "updatedAt": "2026-05-03T00:00:00.000Z"}], "monthlyRevenue": [{"yearMonth": "2025-10", "year": 2025, "month": 10, "revenue": 20800, "visits": 77, "notes": "", "updatedAt": "2026-05-03T00:00:00.000Z"}, {"yearMonth": "2025-11", "year": 2025, "month": 11, "revenue": 21402, "visits": 75, "notes": "", "updatedAt": "2026-05-03T00:00:00.000Z"}, {"yearMonth": "2025-12", "year": 2025, "month": 12, "revenue": 19933, "visits": 67, "notes": "", "updatedAt": "2026-05-03T00:00:00.000Z"}, {"yearMonth": "2026-01", "year": 2026, "month": 1, "revenue": 20670, "visits": 72, "notes": "", "updatedAt": "2026-05-03T00:00:00.000Z"}, {"yearMonth": "2026-02", "year": 2026, "month": 2, "revenue": 23277, "visits": 78, "notes": "", "updatedAt": "2026-05-03T00:00:00.000Z"}, {"yearMonth": "2026-03", "year": 2026, "month": 3, "revenue": 19508, "visits": 69, "notes": "", "updatedAt": "2026-05-03T00:00:00.000Z"}, {"yearMonth": "2026-04", "year": 2026, "month": 4, "revenue": 17065, "visits": 62, "notes": "", "updatedAt": "2026-05-03T00:00:00.000Z"}]};
+
+function log(msg, cls='info'){
+  const d=document.getElementById('log');
+  const line=document.createElement('div');
+  line.className=cls; line.textContent=msg;
+  d.appendChild(line); d.scrollTop=d.scrollHeight;
+}
+function setBar(pct){ document.getElementById('bar').style.width=pct+'%'; }
+
+async function startImport(){
+  const btn=document.getElementById('btn');
+  btn.disabled=true; btn.textContent='⏳ กำลังนำเข้า...';
+  log('🔌 เชื่อมต่อ Firebase...');
+  
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    const db=firebase.firestore();
+    await db.collection('_ping').doc('test').set({t:Date.now()});
+    log('✅ เชื่อมต่อ Firebase สำเร็จ','ok');
+  }catch(e){
+    log('❌ เชื่อมต่อ Firebase ไม่ได้: '+e.message,'err');
+    btn.disabled=false; btn.textContent='🚀 ลองใหม่';
+    return;
+  }
+
+  const db=firebase.firestore();
+  const daily=IMPORT_DATA.dailyRecords;
+  const monthly=IMPORT_DATA.monthlyRevenue;
+  const total=daily.length+monthly.length;
+  let done=0, errors=0;
+
+  log(`📋 บันทึกรายวัน: ${daily.length} วัน | รายได้รายเดือน: ${monthly.length} เดือน`);
+  log('── เริ่มนำเข้าบันทึกรายวัน ──');
+
+  // Import daily records in batches of 20
+  const BATCH_SIZE=20;
+  for(let i=0;i<daily.length;i+=BATCH_SIZE){
+    const batch=db.batch();
+    const chunk=daily.slice(i,i+BATCH_SIZE);
+    for(const r of chunk){
+      const ref=db.collection('dailyRecords').doc(r.date);
+      batch.set(ref,r);
+    }
+    try{
+      await batch.commit();
+      done+=chunk.length;
+      setBar(Math.round(done/total*100));
+      const last=chunk[chunk.length-1].date;
+      log(`  ✓ ${i+1}–${Math.min(i+BATCH_SIZE,daily.length)}: ถึง ${last}`,'ok');
+    }catch(e){
+      errors++;
+      log(`  ✗ batch ${i}: ${e.message}`,'err');
+    }
+  }
+
+  log('── เริ่มนำเข้ารายได้รายเดือน ──');
+  for(const r of monthly){
+    try{
+      await db.collection('monthlyRevenue').doc(r.yearMonth).set(r);
+      done++;
+      setBar(Math.round(done/total*100));
+      log(`  ✓ ${r.yearMonth}: ฿${r.revenue.toLocaleString()} | ${r.visits} ครั้ง`,'ok');
+    }catch(e){
+      errors++;
+      log(`  ✗ ${r.yearMonth}: ${e.message}`,'err');
+    }
+  }
+
+  setBar(100);
+  if(errors===0){
+    log(`\n🎉 นำเข้าสำเร็จทั้งหมด! ${done} รายการ`,'ok');
+    btn.textContent='✅ นำเข้าสำเร็จ';
+  }else{
+    log(`\n⚠️ เสร็จสิ้น: สำเร็จ ${done} รายการ | ผิดพลาด ${errors} รายการ`,'err');
+    btn.disabled=false; btn.textContent='🔄 ลองใหม่';
+  }
+}
+</script>
+</body>
+</html>
