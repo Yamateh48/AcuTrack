@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AcuTrack — ระบบจัดการคลินิกฝังเข็ม</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Sarabun', sans-serif; background: #f0f9ff; min-height: 100vh; }
+    .gradient-header { background: linear-gradient(135deg, #0891b2 0%, #7c3aed 100%); }
+    .gc-teal   { background: linear-gradient(135deg, #0891b2, #0e7490); }
+    .gc-purple { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
+    .gc-green  { background: linear-gradient(135deg, #059669, #047857); }
+    .gc-amber  { background: linear-gradient(135deg, #d97706, #b45309); }
+    .gc-rose   { background: linear-gradient(135deg, #e11d48, #be123c); }
+    .gc-indigo { background: linear-gradient(135deg, #4f46e5, #3730a3); }
+    .gc-sky    { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
+    .card { background: white; border-radius: 16px; box-shadow: 0 2px 16px rgba(0,0,0,0.07); padding: 24px; }
+    .inp {
+      width: 100%; padding: 10px 14px;
+      border: 2px solid #e2e8f0; border-radius: 10px;
+      font-family: 'Sarabun', sans-serif; font-size: 15px; color: #1e293b;
+      transition: border-color .2s, box-shadow .2s; outline: none; background: white;
+    }
+    .inp:focus { border-color: #0891b2; box-shadow: 0 0 0 3px rgba(8,145,178,.12); }
+    .btn { padding: 10px 22px; border-radius: 10px; font-family: 'Sarabun', sans-serif; font-weight: 700; font-size: 15px; cursor: pointer; transition: all .2s; border: none; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-primary { background: linear-gradient(135deg, #0891b2, #0e7490); color: white; }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(8,145,178,.35); }
+    .btn-success { background: linear-gradient(135deg, #059669, #047857); color: white; }
+    .btn-success:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(5,150,105,.35); }
+    .btn-neutral { background: #f1f5f9; color: #475569; }
+    .btn-neutral:hover { background: #e2e8f0; }
+    .btn-danger { background: linear-gradient(135deg, #e11d48, #be123c); color: white; font-size: 13px; padding: 6px 12px; }
+    .btn-sm { padding: 6px 14px; font-size: 13px; }
+    .btn-edit { background: #eff6ff; color: #1d4ed8; font-size: 13px; padding: 5px 11px; }
+    .btn-import { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
+    .btn-import:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(245,158,11,.35); }
+    .needle-card {
+      background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 12px;
+      padding: 14px 8px; text-align: center; transition: all .2s;
+    }
+    .needle-card:focus-within { border-color: #0891b2; background: #ecfeff; box-shadow: 0 0 0 3px rgba(8,145,178,.1); }
+    .needle-card input { width: 100%; border: none; background: transparent; text-align: center; font-size: 22px; font-weight: 800; color: #1e293b; outline: none; font-family: 'Sarabun', sans-serif; }
+    .needle-card input::placeholder { color: #cbd5e1; }
+    .tab-btn {
+      padding: 13px 16px; font-weight: 700; font-size: 13.5px;
+      color: #64748b; border-bottom: 3px solid transparent;
+      transition: all .2s; white-space: nowrap; cursor: pointer;
+      background: none; border-top: none; border-left: none; border-right: none;
+    }
+    .tab-btn:hover { color: #0891b2; }
+    .tab-btn.active { color: #0891b2; border-bottom-color: #0891b2; }
+    .dt { width: 100%; border-collapse: separate; border-spacing: 0; }
+    .dt th { background: #f8fafc; padding: 11px 14px; text-align: left; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .06em; border-bottom: 2px solid #e2e8f0; }
+    .dt td { padding: 11px 14px; border-bottom: 1px solid #f1f5f9; color: #334155; font-size: 14px; }
+    .dt tr:last-child td { border-bottom: none; }
+    .dt tbody tr:hover td { background: #f8fafc; }
+    #toast {
+      position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 20px; border-radius: 14px; font-weight: 600; font-size: 15px;
+      max-width: 380px; box-shadow: 0 8px 30px rgba(0,0,0,.14);
+      transform: translateY(120px); opacity: 0;
+      transition: all .4s cubic-bezier(.34,1.56,.64,1); pointer-events: none;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.t-ok   { background: #ecfdf5; color: #065f46; border: 1.5px solid #a7f3d0; }
+    #toast.t-err  { background: #fff1f2; color: #881337; border: 1.5px solid #fecdd3; }
+    #toast.t-info { background: #eff6ff; color: #1e40af; border: 1.5px solid #bfdbfe; }
+    .fb-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+    .fb-on  { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,.6); }
+    .fb-off { background: #fbbf24; }
+    .bar-track { background: #e2e8f0; border-radius: 99px; height: 10px; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 99px; transition: width .8s ease; }
+    .page { animation: fadeUp .3s ease; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+    @media(max-width:640px) { .card { padding: 16px; } .needle-card input { font-size: 18px; } }
+  </style>
+</head>
+<body>
+
+<!-- ═══ HEADER ═══ -->
+<header class="gradient-header shadow-lg">
+  <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-2xl select-none">🪡</div>
+      <div>
+        <h1 class="text-white font-bold text-xl leading-tight" id="clinicNameDisplay">คลินิกฝังเข็ม</h1>
+        <p class="text-white/60 text-xs">AcuTrack • ระบบจัดการคลินิก</p>
+      </div>
+    </div>
+    <div class="text-right hidden sm:block">
+      <p class="text-white font-semibold text-sm" id="headerDate"></p>
+      <div class="flex items-center justify-end gap-1 mt-0.5">
+        <span class="fb-dot fb-off" id="fbDot"></span>
+        <span class="text-white/60 text-xs" id="fbStatus">LocalStorage</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══ NAV ═══ -->
+<nav class="bg-white shadow-sm sticky top-0 z-40 border-b border-slate-100">
+  <div class="max-w-7xl mx-auto px-4">
+    <div class="flex overflow-x-auto gap-0">
+      <button class="tab-btn active" onclick="showTab('daily')"     id="tab-daily">    📋 บันทึกรายวัน</button>
+      <button class="tab-btn"        onclick="showTab('revenue')"   id="tab-revenue">  💰 รายได้รายเดือน</button>
+      <button class="tab-btn"        onclick="showTab('monthly')"   id="tab-monthly">  📊 สรุปรายเดือน</button>
+      <button class="tab-btn"        onclick="showTab('quarterly')" id="tab-quarterly">📈 สรุปรายไตรมาส</button>
+      <button class="tab-btn"        onclick="showTab('yearly')"    id="tab-yearly">   📅 สรุปรายปี</button>
+      <button class="tab-btn"        onclick="showTab('settings')"  id="tab-settings"> ⚙️ ตั้งค่า</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ MAIN ═══ -->
+<main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+  <!-- ── TAB 1: DAILY ── -->
+  <div id="page-daily" class="page">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="card">
+        <h2 class="text-lg font-bold text-slate-800 mb-5 flex items-center gap-2"><span>📋</span> บันทึกข้อมูลรายวัน</h2>
+        <div class="mb-5">
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-sm font-semibold text-slate-600">📅 วันที่</label>
+            <button onclick="calToday()" class="btn btn-neutral btn-sm">📍 วันนี้</button>
+          </div>
+          <!-- Calendar widget -->
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+            <div class="flex items-center justify-between mb-2">
+              <button onclick="calPrevMonth()" class="w-8 h-8 rounded-lg hover:bg-slate-200 font-bold text-slate-600 transition-colors">◀</button>
+              <span id="calTitle" class="font-bold text-slate-700 text-sm"></span>
+              <button onclick="calNextMonth()" class="w-8 h-8 rounded-lg hover:bg-slate-200 font-bold text-slate-600 transition-colors">▶</button>
+            </div>
+            <div id="calGrid" class="grid grid-cols-7 gap-0.5 text-center"></div>
+            <div class="mt-2 text-center text-xs text-slate-500">วันที่เลือก: <span id="calSelectedLabel" class="font-bold text-cyan-700"></span></div>
+          </div>
+        </div>
+        <div class="mb-5">
+          <label class="block text-sm font-semibold text-slate-600 mb-3">🪡 จำนวนเข็มที่ใช้</label>
+          <div class="grid grid-cols-5 gap-2">
+            <div class="needle-card"><div class="text-xs font-bold text-cyan-600 mb-1">13 mm</div><input type="number" id="n13" min="0" placeholder="0"><div class="text-xs text-slate-400 mt-1">เข็ม</div></div>
+            <div class="needle-card"><div class="text-xs font-bold text-violet-600 mb-1">25 mm</div><input type="number" id="n25" min="0" placeholder="0"><div class="text-xs text-slate-400 mt-1">เข็ม</div></div>
+            <div class="needle-card"><div class="text-xs font-bold text-emerald-600 mb-1">40 mm</div><input type="number" id="n40" min="0" placeholder="0"><div class="text-xs text-slate-400 mt-1">เข็ม</div></div>
+            <div class="needle-card"><div class="text-xs font-bold text-amber-600 mb-1">50 mm</div><input type="number" id="n50" min="0" placeholder="0"><div class="text-xs text-slate-400 mt-1">เข็ม</div></div>
+            <div class="needle-card"><div class="text-xs font-bold text-rose-600 mb-1">75 mm</div><input type="number" id="n75" min="0" placeholder="0"><div class="text-xs text-slate-400 mt-1">เข็ม</div></div>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <button class="btn btn-primary flex-1" onclick="handleSaveDaily()">💾 บันทึกข้อมูล</button>
+          <button class="btn btn-neutral" onclick="clearDailyForm()">🔄 ล้าง</button>
+        </div>
+      </div>
+      <div class="flex flex-col gap-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="gc-teal rounded-2xl p-5 text-white"><p class="text-white/70 text-sm">เข็มรวมวันนี้</p><p class="text-4xl font-black mt-1" id="statTodayNeedle">—</p><p class="text-white/60 text-xs mt-1">เข็ม</p></div>
+          <div class="gc-purple rounded-2xl p-5 text-white"><p class="text-white/70 text-sm">เข็มรวมเดือนนี้</p><p class="text-4xl font-black mt-1" id="statMonthNeedle">—</p><p class="text-white/60 text-xs mt-1">เข็ม</p></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="gc-green rounded-xl p-4 text-white"><p class="text-white/70 text-xs">วันที่บันทึกเดือนนี้</p><p class="text-2xl font-black mt-0.5" id="statMonthDays">—</p><p class="text-white/60 text-xs">วัน</p></div>
+          <div class="gc-amber rounded-xl p-4 text-white"><p class="text-white/70 text-xs">เฉลี่ยเข็ม/วัน</p><p class="text-2xl font-black mt-0.5" id="statAvgNeedle">—</p><p class="text-white/60 text-xs">เข็ม</p></div>
+        </div>
+        <div class="card" style="padding:20px; flex:1">
+          <h3 class="font-bold text-slate-700 mb-3">⏱ ข้อมูลล่าสุด 7 วัน</h3>
+          <div class="overflow-x-auto">
+            <table class="dt">
+              <thead><tr><th>วันที่</th><th>เข็มรวม</th><th>13mm</th><th>25mm</th><th>40mm</th><th>50mm</th><th>75mm</th><th></th></tr></thead>
+              <tbody id="recentBody"><tr><td colspan="8" class="text-center text-slate-400 py-4 text-sm">ยังไม่มีข้อมูล</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB 2: REVENUE ── -->
+  <div id="page-revenue" class="page hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="card">
+        <h2 class="text-lg font-bold text-slate-800 mb-5 flex items-center gap-2"><span>💰</span> บันทึกรายได้รายเดือน</h2>
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-sm font-semibold text-slate-600 mb-1.5">ปี (พ.ศ.)</label>
+            <input type="number" id="revYear" class="inp" placeholder="2568">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-600 mb-1.5">เดือน</label>
+            <select id="revMonth" class="inp">
+              <option value="1">มกราคม</option><option value="2">กุมภาพันธ์</option>
+              <option value="3">มีนาคม</option><option value="4">เมษายน</option>
+              <option value="5">พฤษภาคม</option><option value="6">มิถุนายน</option>
+              <option value="7">กรกฎาคม</option><option value="8">สิงหาคม</option>
+              <option value="9">กันยายน</option><option value="10">ตุลาคม</option>
+              <option value="11">พฤศจิกายน</option><option value="12">ธันวาคม</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <div>
+            <label class="block text-sm font-semibold text-slate-600 mb-1.5">💵 รายได้ (บาท)</label>
+            <input type="number" id="revAmount" min="0" placeholder="0.00" class="inp font-bold">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-600 mb-1.5">👥 จำนวนครั้งที่มารับบริการ</label>
+            <input type="number" id="revVisits" min="0" placeholder="0" class="inp">
+          </div>
+        </div>
+        <div class="mb-5">
+          <label class="block text-sm font-semibold text-slate-600 mb-1.5">📝 หมายเหตุ</label>
+          <textarea id="revNotes" rows="2" placeholder="บันทึกเพิ่มเติม..." class="inp resize-none"></textarea>
+        </div>
+        <button class="btn btn-success w-full justify-center" onclick="handleSaveRevenue()">💾 บันทึกรายได้</button>
+      </div>
+      <div class="card">
+        <h3 class="font-bold text-slate-700 mb-4">📜 ประวัติรายได้</h3>
+        <div class="overflow-x-auto">
+          <table class="dt">
+            <thead><tr><th>เดือน/ปี</th><th>รายได้</th><th>จำนวนครั้ง</th><th>หมายเหตุ</th><th></th></tr></thead>
+            <tbody id="revHistBody"><tr><td colspan="5" class="text-center text-slate-400 py-4 text-sm">ยังไม่มีข้อมูล</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB 3: MONTHLY SUMMARY ── -->
+  <div id="page-monthly" class="page hidden">
+    <div class="card mb-6">
+      <div class="flex flex-wrap items-center gap-4">
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-semibold text-slate-600">ปี (พ.ศ.):</label>
+          <select id="msYear" class="inp" style="width:105px" onchange="renderMonthly()"></select>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-semibold text-slate-600">เดือน:</label>
+          <select id="msMonth" class="inp" style="width:140px" onchange="renderMonthly()">
+            <option value="1">มกราคม</option><option value="2">กุมภาพันธ์</option><option value="3">มีนาคม</option><option value="4">เมษายน</option>
+            <option value="5">พฤษภาคม</option><option value="6">มิถุนายน</option><option value="7">กรกฎาคม</option><option value="8">สิงหาคม</option>
+            <option value="9">กันยายน</option><option value="10">ตุลาคม</option><option value="11">พฤศจิกายน</option><option value="12">ธันวาคม</option>
+          </select>
+        </div>
+        <button class="btn btn-success btn-sm" onclick="exportMonthlyExcel()">📥 Export Excel</button>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="monthlyStats"></div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div class="card"><h3 class="font-bold text-slate-700 mb-4">🪡 การใช้เข็มแยกตามขนาด</h3><div id="needleBreakdown" class="space-y-3"></div></div>
+      <div class="card"><h3 class="font-bold text-slate-700 mb-4">📊 กราฟการใช้เข็ม</h3><div style="position:relative;height:220px"><canvas id="needleChart"></canvas></div></div>
+    </div>
+    <div class="card">
+      <h3 class="font-bold text-slate-700 mb-4">📅 รายละเอียดรายวัน</h3>
+      <div class="overflow-x-auto">
+        <table class="dt">
+          <thead><tr><th>วันที่</th><th>13mm</th><th>25mm</th><th>40mm</th><th>50mm</th><th>75mm</th><th>รวมเข็ม</th></tr></thead>
+          <tbody id="monthlyDetailBody"><tr><td colspan="7" class="text-center text-slate-400 py-5 text-sm">เลือกเดือนเพื่อดูข้อมูล</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB 4: QUARTERLY ── -->
+  <div id="page-quarterly" class="page hidden">
+    <div class="card mb-6">
+      <div class="flex flex-wrap items-center gap-4">
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-semibold text-slate-600">ปี (พ.ศ.):</label>
+          <select id="qsYear" class="inp" style="width:105px" onchange="renderQuarterly()"></select>
+        </div>
+        <button class="btn btn-success btn-sm" onclick="exportQuarterlyExcel()">📥 Export Excel</button>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-6" id="quarterlyCards"></div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div class="card"><h3 class="font-bold text-slate-700 mb-4">🪡 เข็มรายไตรมาส</h3><div style="position:relative;height:240px"><canvas id="qNeedleChart"></canvas></div></div>
+      <div class="card"><h3 class="font-bold text-slate-700 mb-4">💰 รายได้รายไตรมาส</h3><div style="position:relative;height:240px"><canvas id="qRevenueChart"></canvas></div></div>
+      <div class="card"><h3 class="font-bold text-slate-700 mb-4">👥 จำนวนครั้งรายไตรมาส</h3><div style="position:relative;height:240px"><canvas id="qVisitsChart"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- ── TAB 5: YEARLY SUMMARY (NEW) ── -->
+  <div id="page-yearly" class="page hidden">
+    <div class="card mb-6">
+      <div class="flex flex-wrap items-center gap-4">
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-semibold text-slate-600">ปี (พ.ศ.):</label>
+          <select id="yrYear" class="inp" style="width:105px" onchange="renderYearly()"></select>
+        </div>
+        <button class="btn btn-success btn-sm" onclick="exportYearlyExcel()">📥 Export Excel</button>
+      </div>
+    </div>
+    <!-- Stat cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="yearlyStats"></div>
+    <!-- Charts -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
+      <div class="card">
+        <h3 class="font-bold text-slate-700 mb-4">🪡 เข็มรวมรายเดือน</h3>
+        <div style="position:relative;height:240px"><canvas id="yrNeedleChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h3 class="font-bold text-slate-700 mb-4">💰 รายได้รายเดือน</h3>
+        <div style="position:relative;height:240px"><canvas id="yrRevenueChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h3 class="font-bold text-slate-700 mb-4">👥 จำนวนครั้งรายเดือน</h3>
+        <div style="position:relative;height:240px"><canvas id="yrVisitsChart"></canvas></div>
+      </div>
+    </div>
+    <!-- Monthly breakdown table -->
+    <div class="card">
+      <h3 class="font-bold text-slate-700 mb-4">📋 สรุปรายเดือนตลอดปี</h3>
+      <div class="overflow-x-auto">
+        <table class="dt">
+          <thead>
+            <tr>
+              <th>เดือน</th><th>วันที่บันทึก</th>
+              <th>13mm</th><th>25mm</th><th>40mm</th><th>50mm</th><th>75mm</th>
+              <th>เข็มรวม</th><th>จำนวนครั้ง</th><th>รายได้</th>
+            </tr>
+          </thead>
+          <tbody id="yearlyTableBody"><tr><td colspan="10" class="text-center text-slate-400 py-6 text-sm">เลือกปีเพื่อดูข้อมูล</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB 6: SETTINGS ── -->
+  <div id="page-settings" class="page hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- General -->
+      <div class="card">
+        <h2 class="text-lg font-bold text-slate-800 mb-5 flex items-center gap-2"><span>⚙️</span>ตั้งค่าทั่วไป</h2>
+        <div class="mb-4">
+          <label class="block text-sm font-semibold text-slate-600 mb-1.5">ชื่อคลินิก</label>
+          <input type="text" id="settingClinicName" class="inp" placeholder="คลินิกฝังเข็ม">
+        </div>
+        <button class="btn btn-primary" onclick="saveGeneralSettings()">💾 บันทึกการตั้งค่า</button>
+      </div>
+
+      <!-- Firebase -->
+      <div class="card">
+        <h2 class="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2"><span>☁️</span>Cloud Storage (Firebase)</h2>
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+          <p class="text-blue-800 text-sm font-bold mb-2">🔗 วิธีเชื่อมต่อ Firebase</p>
+          <ol class="text-blue-700 text-sm space-y-1 list-decimal list-inside">
+            <li>ไปที่ <a href="https://console.firebase.google.com" target="_blank" class="underline font-semibold">console.firebase.google.com</a></li>
+            <li>สร้างโปรเจกต์ → เปิด <strong>Firestore Database</strong> (Test mode)</li>
+            <li>Project Settings → Web App → คัดลอก Config Object</li>
+          </ol>
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-semibold text-slate-600 mb-1.5">Firebase Config (JSON)</label>
+          <textarea id="fbConfigInput" rows="7" class="inp font-mono text-xs resize-none"
+            placeholder='{&#10;  "apiKey": "AIza...",&#10;  "authDomain": "...",&#10;  "projectId": "...",&#10;  "storageBucket": "...",&#10;  "messagingSenderId": "...",&#10;  "appId": "..."&#10;}'></textarea>
+        </div>
+        <div class="flex gap-3 mb-4">
+          <button class="btn btn-primary flex-1 justify-center" onclick="connectFirebase()">🔌 เชื่อมต่อ Firebase</button>
+          <button class="btn btn-neutral" onclick="disconnectFirebase()">❌ ตัดการเชื่อมต่อ</button>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2">
+          <span class="fb-dot fb-off" id="fbDotSettings"></span>
+          <span class="text-sm font-semibold text-slate-600" id="fbStatusSettings">ยังไม่ได้เชื่อมต่อ (ใช้ LocalStorage)</span>
+        </div>
+      </div>
+
+
+      <!-- Data Management -->
+      <div class="card">
+        <h2 class="text-lg font-bold text-slate-800 mb-5 flex items-center gap-2"><span>🗄️</span>จัดการข้อมูล</h2>
+        <div class="flex flex-col gap-3">
+          <button class="btn btn-neutral justify-center" onclick="exportAllJson()">📤 Export ทั้งหมด (JSON Backup)</button>
+          <label class="btn btn-neutral justify-center cursor-pointer" for="importFile">📥 Import ข้อมูล (JSON)</label>
+          <input type="file" id="importFile" accept=".json" class="hidden" onchange="importJsonData(event)">
+          <div class="border-t border-slate-200 pt-3 mt-1">
+            <button class="btn btn-danger w-full justify-center" onclick="clearAllData()">🗑️ ล้างข้อมูลทั้งหมด</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+<div id="toast"></div>
+
+<!-- ═══════════════ JAVASCRIPT ═══════════════ -->
+<script>
+// ─────────────────────────────────────────────
+//  EMBEDDED IMPORT DATA (from Google Sheets)
+// ─────────────────────────────────────────────
+
+
+// ─────────────────────────────────────────────
+//  CONSTANTS
+// ─────────────────────────────────────────────
+const NS      = ['13','25','40','50','75'];
+const MNTH    = ['','มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+                 'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+const MNTH_S  = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
+                 'ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const NCOLORS = ['#0891b2','#7c3aed','#059669','#d97706','#e11d48'];
+
+let fbDb=null, fbOn=false;
+let chartNeedle=null;
+let chartQNeedle=null, chartQRevenue=null, chartQVisits=null;
+let chartYrNeedle=null, chartYrRevenue=null, chartYrVisits=null;
+
+// ─────────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────────
+const todayStr = () => {
+  const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+};
+const pad     = n => String(n).padStart(2,'0');
+const sumN    = r => NS.reduce((s,n)=>s+(parseInt(r['n'+n])||0),0);
+const fmtDate = s => { const[y,m,d]=s.split('-'); return `${d}/${m}/${+y+543}`; };
+const fmtMoney= n => new Intl.NumberFormat('th-TH').format(n||0);
+
+let _tt=null;
+function toast(msg,type='ok'){
+  const el=document.getElementById('toast');
+  el.innerHTML=`<span>${{ok:'✅',err:'❌',info:'ℹ️'}[type]||'💬'}</span><span>${msg}</span>`;
+  el.className=`show t-${type}`;
+  if(_tt)clearTimeout(_tt);
+  _tt=setTimeout(()=>el.className='',3600);
+}
+
+// ─────────────────────────────────────────────
+//  LOCAL STORAGE
+// ─────────────────────────────────────────────
+const LS={
+  get:k=>{try{return JSON.parse(localStorage.getItem(k)||'{}')}catch{return{}}},
+  set:(k,v)=>localStorage.setItem(k,JSON.stringify(v))
+};
+
+// ─────────────────────────────────────────────
+//  DATA LAYER
+// ─────────────────────────────────────────────
+const db={
+  async putRecord(rec){
+    if(fbOn){await fbDb.collection('dailyRecords').doc(rec.date).set(rec);}
+    else{const a=LS.get('dailyRecords');a[rec.date]=rec;LS.set('dailyRecords',a);}
+  },
+  async getRecord(date){
+    if(fbOn){const d=await fbDb.collection('dailyRecords').doc(date).get();return d.exists?d.data():null;}
+    return LS.get('dailyRecords')[date]||null;
+  },
+  async delRecord(date){
+    if(fbOn){await fbDb.collection('dailyRecords').doc(date).delete();}
+    else{const a=LS.get('dailyRecords');delete a[date];LS.set('dailyRecords',a);}
+  },
+  async getRecords(s,e){
+    if(fbOn){
+      const snap=await fbDb.collection('dailyRecords').where('date','>=',s).where('date','<=',e).orderBy('date').get();
+      return snap.docs.map(d=>d.data());
+    }
+    return Object.values(LS.get('dailyRecords')).filter(r=>r.date>=s&&r.date<=e).sort((a,b)=>a.date.localeCompare(b.date));
+  },
+  async getRecentRecords(n=7){
+    if(fbOn){const snap=await fbDb.collection('dailyRecords').orderBy('date','desc').limit(n).get();return snap.docs.map(d=>d.data());}
+    return Object.values(LS.get('dailyRecords')).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,n);
+  },
+  async getMonthRecords(y,m){return this.getRecords(`${y}-${pad(m)}-01`,`${y}-${pad(m)}-31`);},
+  async getYearRecords(y){return this.getRecords(`${y}-01-01`,`${y}-12-31`);},
+
+  async putRevenue(ym,data){
+    if(fbOn){await fbDb.collection('monthlyRevenue').doc(ym).set(data);}
+    else{const a=LS.get('monthlyRevenue');a[ym]=data;LS.set('monthlyRevenue',a);}
+  },
+  async getRevenue(ym){
+    if(fbOn){const d=await fbDb.collection('monthlyRevenue').doc(ym).get();return d.exists?d.data():null;}
+    return LS.get('monthlyRevenue')[ym]||null;
+  },
+  async delRevenue(ym){
+    if(fbOn){await fbDb.collection('monthlyRevenue').doc(ym).delete();}
+    else{const a=LS.get('monthlyRevenue');delete a[ym];LS.set('monthlyRevenue',a);}
+  },
+  async getAllRevenues(){
+    if(fbOn){const snap=await fbDb.collection('monthlyRevenue').orderBy('yearMonth','desc').get();return snap.docs.map(d=>d.data());}
+    return Object.values(LS.get('monthlyRevenue')).sort((a,b)=>b.yearMonth.localeCompare(a.yearMonth));
+  }
+};
+
+// ─────────────────────────────────────────────
+//  TABS
+// ─────────────────────────────────────────────
+function showTab(tab){
+  document.querySelectorAll('[id^="page-"]').forEach(p=>p.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+tab).classList.remove('hidden');
+  document.getElementById('tab-'+tab).classList.add('active');
+  if(tab==='daily')     loadDailyTab();
+  if(tab==='revenue')   loadRevenueTab();
+  if(tab==='monthly')   renderMonthly();
+  if(tab==='quarterly') renderQuarterly();
+  if(tab==='yearly')    renderYearly();
+  if(tab==='settings')  loadSettingsTab();
+}
+
+// ─────────────────────────────────────────────
+//  TAB 1 — DAILY
+// ─────────────────────────────────────────────
+async function loadDailyTab(){
+  const date=getDDate();
+  const rec=await db.getRecord(date);
+  if(rec)fillDailyForm(rec);
+  else NS.forEach(n=>document.getElementById('n'+n).value='');
+  await refreshStats();
+  await renderRecentTable();
+}
+function fillDailyForm(rec){
+  setDDate(rec.date);
+  NS.forEach(n=>document.getElementById('n'+n).value=rec['n'+n]||'');
+}
+function clearDailyForm(){
+  setDDate(todayStr());
+  NS.forEach(n=>document.getElementById('n'+n).value='');
+}
+async function refreshStats(){
+  const today=todayStr();const[y,m]=today.split('-');
+  const[tr,mr]=await Promise.all([db.getRecord(today),db.getMonthRecords(+y,+m)]);
+  const monthNeedle=mr.reduce((s,r)=>s+sumN(r),0);
+  const monthDays=mr.length;
+  document.getElementById('statTodayNeedle').textContent=tr?sumN(tr):0;
+  document.getElementById('statMonthNeedle').textContent=monthNeedle;
+  document.getElementById('statMonthDays').textContent  =monthDays;
+  document.getElementById('statAvgNeedle').textContent  =monthDays?(monthNeedle/monthDays).toFixed(1):0;
+}
+async function renderRecentTable(){
+  const recs=await db.getRecentRecords(7);
+  const tb=document.getElementById('recentBody');
+  if(!recs.length){tb.innerHTML='<tr><td colspan="8" class="text-center text-slate-400 py-4 text-sm">ยังไม่มีข้อมูล</td></tr>';return;}
+  tb.innerHTML=recs.map(r=>`<tr>
+    <td class="font-semibold">${fmtDate(r.date)}</td>
+    <td class="font-bold text-cyan-700">${sumN(r)}</td>
+    ${NS.map(n=>`<td class="text-slate-500">${r['n'+n]||0}</td>`).join('')}
+    <td class="flex gap-1">
+      <button class="btn btn-edit btn-sm" onclick="editRecord('${r.date}')">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteRecord('${r.date}')">🗑️</button>
+    </td></tr>`).join('');
+}
+async function editRecord(date){const rec=await db.getRecord(date);if(rec){fillDailyForm(rec);window.scrollTo({top:0,behavior:'smooth'});}}
+async function deleteRecord(date){
+  if(!confirm(`ลบข้อมูลวันที่ ${fmtDate(date)}?`))return;
+  await db.delRecord(date);await renderRecentTable();await refreshStats();toast('ลบข้อมูลแล้ว','info');
+}
+// ── Calendar (พ.ศ.) ────────────────────────────────────────────────────────
+let _calYear=2025, _calMonth=9, _calSel='2025-09-01';
+
+function getDDate(){ return _calSel; }
+
+function setDDate(dateStr){
+  if(!dateStr)return;
+  const[yCE,m,d]=dateStr.split('-');
+  _calYear=parseInt(yCE); _calMonth=parseInt(m); _calSel=dateStr;
+  renderCalendar();
+}
+
+function renderCalendar(){
+  const titleEl=document.getElementById('calTitle');
+  if(!titleEl)return;
+  titleEl.textContent=`${MNTH[_calMonth]} ${_calYear+543}`;
+  const firstDay=new Date(_calYear,_calMonth-1,1).getDay();
+  const daysInMonth=new Date(_calYear,_calMonth,0).getDate();
+  const today=todayStr();
+  const DAY_NAMES=['อา','จ','อ','พ','พฤ','ศ','ส'];
+  let html=DAY_NAMES.map(dn=>`<div class="text-xs font-bold text-slate-400 py-1">${dn}</div>`).join('');
+  for(let i=0;i<firstDay;i++) html+='<div></div>';
+  for(let day=1;day<=daysInMonth;day++){
+    const ds=`${_calYear}-${pad(_calMonth)}-${pad(day)}`;
+    const isSel=ds===_calSel, isToday=ds===today;
+    const cls=isSel
+      ?'rounded-lg py-1 cursor-pointer text-sm font-black bg-cyan-600 text-white'
+      :isToday
+        ?'rounded-lg py-1 cursor-pointer text-sm font-bold bg-cyan-100 text-cyan-700'
+        :'rounded-lg py-1 cursor-pointer text-sm text-slate-700 hover:bg-white hover:shadow-sm transition-colors';
+    html+=`<div class="${cls}" onclick="calSelect('${ds}')">${day}</div>`;
+  }
+  document.getElementById('calGrid').innerHTML=html;
+  const lb=document.getElementById('calSelectedLabel');
+  if(lb)lb.textContent=_calSel?fmtDate(_calSel):'—';
+}
+
+function calSelect(dateStr){
+  _calSel=dateStr;
+  const[yCE,m]=dateStr.split('-');
+  _calYear=parseInt(yCE); _calMonth=parseInt(m);
+  renderCalendar();
+  loadRecordByDate();
+}
+function calPrevMonth(){ _calMonth--; if(_calMonth<1){_calMonth=12;_calYear--;} renderCalendar(); }
+function calNextMonth(){ _calMonth++; if(_calMonth>12){_calMonth=1;_calYear++;} renderCalendar(); }
+function calToday(){ setDDate(todayStr()); loadRecordByDate(); }
+async function loadRecordByDate(){
+  const date=getDDate();
+  if(!date)return;
+  const rec=await db.getRecord(date);
+  if(rec){NS.forEach(n=>document.getElementById('n'+n).value=rec['n'+n]||'');}
+  else{NS.forEach(n=>document.getElementById('n'+n).value='');}
+}
+async function handleSaveDaily(){
+  const date=getDDate();
+  if(!date){toast('กรุณาเลือกวันที่','err');return;}
+  const rec={date,updatedAt:new Date().toISOString()};
+  NS.forEach(n=>rec['n'+n]=parseInt(document.getElementById('n'+n).value)||0);
+  try{await db.putRecord(rec);toast('บันทึกข้อมูลสำเร็จ ✨','ok');await refreshStats();await renderRecentTable();}
+  catch(e){toast('เกิดข้อผิดพลาด: '+e.message,'err');}
+}
+
+// ─────────────────────────────────────────────
+//  TAB 2 — REVENUE  (ปี = พ.ศ.)
+// ─────────────────────────────────────────────
+async function loadRevenueTab(){
+  const now=new Date();
+  document.getElementById('revYear').value  = now.getFullYear()+543; // พ.ศ.
+  document.getElementById('revMonth').value = now.getMonth()+1;
+  await renderRevHistory();
+}
+async function renderRevHistory(){
+  const revs=await db.getAllRevenues();
+  const tb=document.getElementById('revHistBody');
+  if(!revs.length){tb.innerHTML='<tr><td colspan="5" class="text-center text-slate-400 py-4 text-sm">ยังไม่มีข้อมูล</td></tr>';return;}
+  tb.innerHTML=revs.map(r=>`<tr>
+    <td class="font-semibold">${MNTH[r.month]} ${r.year+543}</td>
+    <td class="text-emerald-700 font-bold">฿${fmtMoney(r.revenue)}</td>
+    <td class="text-slate-700">${r.visits||0} ครั้ง</td>
+    <td class="text-slate-400 text-sm">${r.notes||'—'}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="deleteRevenue('${r.yearMonth}')">🗑️</button></td>
+  </tr>`).join('');
+}
+async function handleSaveRevenue(){
+  const yearBE = parseInt(document.getElementById('revYear').value);
+  const year   = yearBE - 543; // แปลงเป็น ค.ศ. สำหรับเก็บข้อมูล
+  const month  = parseInt(document.getElementById('revMonth').value);
+  const amount = parseFloat(document.getElementById('revAmount').value)||0;
+  const visits = parseInt(document.getElementById('revVisits').value)||0;
+  const notes  = document.getElementById('revNotes').value||'';
+  if(!yearBE||!month){toast('กรุณาเลือกเดือนและปี','err');return;}
+  const ym=`${year}-${pad(month)}`;
+  try{
+    await db.putRevenue(ym,{yearMonth:ym,year,month,revenue:amount,visits,notes,updatedAt:new Date().toISOString()});
+    toast('บันทึกรายได้สำเร็จ 💰','ok');
+    document.getElementById('revAmount').value='';
+    document.getElementById('revVisits').value='';
+    document.getElementById('revNotes').value='';
+    await renderRevHistory();
+  }catch(e){toast('เกิดข้อผิดพลาด: '+e.message,'err');}
+}
+async function deleteRevenue(ym){
+  if(!confirm('ลบข้อมูลรายได้นี้?'))return;
+  await db.delRevenue(ym);await renderRevHistory();toast('ลบข้อมูลแล้ว','info');
+}
+
+// ─────────────────────────────────────────────
+//  TAB 3 — MONTHLY SUMMARY
+// ─────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+//  TAB 3 — MONTHLY SUMMARY
+// ─────────────────────────────────────────────
+async function renderMonthly(){
+  const year=parseInt(document.getElementById('msYear').value);
+  const month=parseInt(document.getElementById('msMonth').value);
+  const ym=`${year}-${pad(month)}`;
+  const[recs,revDoc]=await Promise.all([db.getMonthRecords(year,month),db.getRevenue(ym)]);
+  const tN={};NS.forEach(n=>tN[n]=recs.reduce((s,r)=>s+(r['n'+n]||0),0));
+  const totalN=Object.values(tN).reduce((a,b)=>a+b,0);
+  const revenue=revDoc?.revenue||0;
+  const visits =revDoc?.visits||0;
+
+  document.getElementById('monthlyStats').innerHTML=`
+    <div class="gc-purple rounded-2xl p-5 text-white"><p class="text-white/70 text-sm">เข็มรวม</p><p class="text-4xl font-black">${totalN.toLocaleString()}</p><p class="text-white/60 text-xs mt-1">เข็มทั้งหมด</p></div>
+    <div class="gc-teal rounded-2xl p-5 text-white"><p class="text-white/70 text-sm">วันที่บันทึก</p><p class="text-4xl font-black">${recs.length}</p><p class="text-white/60 text-xs mt-1">วัน</p></div>
+    <div class="gc-green rounded-2xl p-5 text-white"><p class="text-white/70 text-sm">รายได้</p><p class="text-3xl font-black">฿${fmtMoney(revenue)}</p><p class="text-white/60 text-xs mt-1">บาท</p></div>
+    <div class="gc-amber rounded-2xl p-5 text-white"><p class="text-white/70 text-sm">จำนวนครั้ง</p><p class="text-3xl font-black">${visits||'—'}</p><p class="text-white/60 text-xs mt-1">ครั้ง</p></div>`;
+
+  const maxN=Math.max(...Object.values(tN),1);
+  document.getElementById('needleBreakdown').innerHTML=NS.map((n,i)=>`
+    <div><div class="flex justify-between text-sm mb-1"><span class="font-semibold text-slate-700">เข็ม ${n} mm</span><span class="font-bold text-slate-800">${tN[n].toLocaleString()} เข็ม</span></div>
+    <div class="bar-track"><div class="bar-fill" style="width:${Math.round(tN[n]/maxN*100)}%;background:${NCOLORS[i]}"></div></div></div>`).join('');
+
+  if(chartNeedle)chartNeedle.destroy();
+  chartNeedle=new Chart(document.getElementById('needleChart').getContext('2d'),{
+    type:'doughnut',
+    data:{labels:NS.map(n=>n+' mm'),datasets:[{data:NS.map(n=>tN[n]),backgroundColor:NCOLORS,borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{family:'Sarabun',size:12},padding:10}}}}
+  });
+
+  const tb=document.getElementById('monthlyDetailBody');
+  if(!recs.length){tb.innerHTML='<tr><td colspan="7" class="text-center text-slate-400 py-6 text-sm">ไม่มีข้อมูลในเดือนนี้</td></tr>';return;}
+  tb.innerHTML=recs.map(r=>`<tr>
+    <td class="font-semibold">${fmtDate(r.date)}</td>
+    ${NS.map(n=>`<td>${r['n'+n]||0}</td>`).join('')}
+    <td class="font-bold text-cyan-700">${sumN(r)}</td></tr>`).join('');
+}
+
+// ─────────────────────────────────────────────
+//  TAB 4 — QUARTERLY
+// ─────────────────────────────────────────────
+async function renderQuarterly(){
+  // ปีงบประมาณ: fyBE = BE fiscal year (e.g. 2569)
+  // Q1 ต.ค.–ธ.ค. → CE = fyBE-544  |  Q2–Q4 ม.ค.–ก.ย. → CE = fyBE-543
+  const fyBE=parseInt(document.getElementById('qsYear').value);
+  const ceY1=fyBE-544, ceY2=fyBE-543;
+  const [recs1,recs2]=await Promise.all([db.getYearRecords(ceY1),db.getYearRecords(ceY2)]);
+  const FQ=[
+    {months:[10,11,12],ceYear:ceY1},
+    {months:[1,2,3],   ceYear:ceY2},
+    {months:[4,5,6],   ceYear:ceY2},
+    {months:[7,8,9],   ceYear:ceY2},
+  ];
+  const qData=await Promise.all(FQ.map(async(fq,qi)=>{
+    const pool=fq.ceYear===ceY1?recs1:recs2;
+    const qRecs=pool.filter(r=>fq.months.includes(parseInt(r.date.split('-')[1])));
+    const needle=qRecs.reduce((s,r)=>s+sumN(r),0);
+    let revenue=0,visits=0;
+    for(const m of fq.months){const rv=await db.getRevenue(`${fq.ceYear}-${pad(m)}`);if(rv){revenue+=rv.revenue||0;visits+=rv.visits||0;}}
+    return{q:qi+1,needle,days:qRecs.length,revenue,visits};
+  }));
+  const grads=['gc-teal','gc-purple','gc-green','gc-amber'];
+  const qNames=['ไตรมาสที่ 1','ไตรมาสที่ 2','ไตรมาสที่ 3','ไตรมาสที่ 4'];
+  // แสดงปี พ.ศ. ของแต่ละไตรมาสชัดเจน
+  const qPrd=[
+    `ต.ค. ${ceY1+543} – ธ.ค. ${ceY1+543}`,
+    `ม.ค. ${ceY2+543} – มี.ค. ${ceY2+543}`,
+    `เม.ย. ${ceY2+543} – มิ.ย. ${ceY2+543}`,
+    `ก.ค. ${ceY2+543} – ก.ย. ${ceY2+543}`,
+  ];
+  document.getElementById('quarterlyCards').innerHTML=qData.map((d,i)=>`
+    <div class="card"><div class="${grads[i]} rounded-xl p-4 mb-4 text-white"><p class="font-bold text-lg">${qNames[i]} ปีงบ ${fyBE}</p><p class="text-white/70 text-sm">${qPrd[i]}</p></div>
+    <div class="space-y-2.5">
+      <div class="flex justify-between"><span class="text-slate-500 text-sm">เข็มรวม</span><span class="font-bold">${d.needle.toLocaleString()} เข็ม</span></div>
+      <div class="flex justify-between"><span class="text-slate-500 text-sm">จำนวนครั้ง</span><span class="font-bold">${d.visits.toLocaleString()} ครั้ง</span></div>
+      <div class="flex justify-between"><span class="text-slate-500 text-sm">รายได้</span><span class="font-bold text-emerald-600">฿${fmtMoney(d.revenue)}</span></div>
+      <div class="flex justify-between"><span class="text-slate-500 text-sm">วันที่บันทึก</span><span class="font-bold">${d.days} วัน</span></div>
+    </div></div>`).join('');
+
+  const CF={family:'Sarabun',size:12};
+  const labels=['Q1','Q2','Q3','Q4'];
+  const qColors=['#0891b2','#7c3aed','#059669','#d97706'];
+
+  if(chartQNeedle)chartQNeedle.destroy();
+  chartQNeedle=new Chart(document.getElementById('qNeedleChart').getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets:[{label:'เข็มรวม',data:qData.map(d=>d.needle),backgroundColor:qColors.map(c=>c+'bb'),borderColor:qColors,borderWidth:2,borderRadius:10}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:CF}}},scales:{y:{beginAtZero:true,ticks:{font:CF}},x:{ticks:{font:CF}}}}
+  });
+
+  if(chartQRevenue)chartQRevenue.destroy();
+  chartQRevenue=new Chart(document.getElementById('qRevenueChart').getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets:[{label:'รายได้ (บาท)',data:qData.map(d=>d.revenue),backgroundColor:'#05966999',borderColor:'#059669',borderWidth:2,borderRadius:10}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:CF}}},scales:{y:{beginAtZero:true,ticks:{font:CF,callback:v=>'฿'+fmtMoney(v)}},x:{ticks:{font:CF}}}}
+  });
+
+  if(chartQVisits)chartQVisits.destroy();
+  chartQVisits=new Chart(document.getElementById('qVisitsChart').getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets:[{label:'จำนวนครั้ง',data:qData.map(d=>d.visits),backgroundColor:'#d9770699',borderColor:'#d97706',borderWidth:2,borderRadius:10}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:CF}}},scales:{y:{beginAtZero:true,ticks:{font:CF}},x:{ticks:{font:CF}}}}
+  });
+}
+
+// ─────────────────────────────────────────────
+//  TAB 5 — YEARLY SUMMARY
+// ─────────────────────────────────────────────
+async function renderYearly(){
+  // ปีงบประมาณ: fyBE เช่น 2569 → ต.ค.68–ก.ย.69
+  const fyBE=parseInt(document.getElementById('yrYear').value);
+  const ceY1=fyBE-544, ceY2=fyBE-543;
+  const [recs1,recs2]=await Promise.all([db.getYearRecords(ceY1),db.getYearRecords(ceY2)]);
+
+  // ลำดับเดือนตามปีงบประมาณ: ต.ค.(10) → ก.ย.(9)
+  const fyMonths=[
+    {m:10,ceYear:ceY1},{m:11,ceYear:ceY1},{m:12,ceYear:ceY1},
+    {m:1,ceYear:ceY2},{m:2,ceYear:ceY2},{m:3,ceYear:ceY2},
+    {m:4,ceYear:ceY2},{m:5,ceYear:ceY2},{m:6,ceYear:ceY2},
+    {m:7,ceYear:ceY2},{m:8,ceYear:ceY2},{m:9,ceYear:ceY2},
+  ];
+
+  const monthly=await Promise.all(fyMonths.map(async({m,ceYear})=>{
+    const pool=ceYear===ceY1?recs1:recs2;
+    const mRecs=pool.filter(r=>parseInt(r.date.split('-')[1])===m);
+    const rv=await db.getRevenue(`${ceYear}-${pad(m)}`);
+    return{
+      m, ceYear, days:mRecs.length,
+      needles:NS.reduce((o,n)=>({...o,[n]:mRecs.reduce((s,r)=>s+(r['n'+n]||0),0)}),{}),
+      totalN:mRecs.reduce((s,r)=>s+sumN(r),0),
+      revenue:rv?.revenue||0, visits:rv?.visits||0
+    };
+  }));
+
+  const totN  =monthly.reduce((s,m)=>s+m.totalN,0);
+  const totRev=monthly.reduce((s,m)=>s+m.revenue,0);
+  const totVis=monthly.reduce((s,m)=>s+m.visits,0);
+
+  document.getElementById('yearlyStats').innerHTML=`
+    <div class="gc-purple rounded-2xl p-5 text-white"><p class="text-white/70 text-sm">เข็มรวมปีงบ ${fyBE}</p><p class="text-4xl font-black">${totN.toLocaleString()}</p><p class="text-white/60 text-xs mt-1">เข็ม</p></div>
+    <div class="gc-teal rounded-2xl p-5 text-white"><p class="text-white/70 text-sm">วันที่บันทึก</p><p class="text-4xl font-black">${monthly.reduce((s,m)=>s+m.days,0)}</p><p class="text-white/60 text-xs mt-1">วัน</p></div>
+    <div class="gc-green rounded-2xl p-5 text-white"><p class="text-white/70 text-sm">รายได้รวมปีงบ ${fyBE}</p><p class="text-3xl font-black">฿${fmtMoney(totRev)}</p><p class="text-white/60 text-xs mt-1">บาท</p></div>
+    <div class="gc-amber rounded-2xl p-5 text-white"><p class="text-white/70 text-sm">จำนวนครั้งรวม</p><p class="text-4xl font-black">${totVis.toLocaleString()}</p><p class="text-white/60 text-xs mt-1">ครั้ง</p></div>`;
+
+  const CF={family:'Sarabun',size:11};
+  const labels=monthly.map(m=>MNTH_S[m.m]);
+
+  if(chartYrNeedle)chartYrNeedle.destroy();
+  chartYrNeedle=new Chart(document.getElementById('yrNeedleChart').getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets:[{label:'เข็มรวม',data:monthly.map(m=>m.totalN),backgroundColor:'#0891b299',borderColor:'#0891b2',borderWidth:2,borderRadius:6}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:CF}}},scales:{y:{beginAtZero:true,ticks:{font:CF}},x:{ticks:{font:CF}}}}
+  });
+
+  if(chartYrRevenue)chartYrRevenue.destroy();
+  chartYrRevenue=new Chart(document.getElementById('yrRevenueChart').getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets:[{label:'รายได้ (บาท)',data:monthly.map(m=>m.revenue),backgroundColor:'#05966999',borderColor:'#059669',borderWidth:2,borderRadius:6}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:CF}}},scales:{y:{beginAtZero:true,ticks:{font:CF,callback:v=>'฿'+fmtMoney(v)}},x:{ticks:{font:CF}}}}
+  });
+
+  if(chartYrVisits)chartYrVisits.destroy();
+  chartYrVisits=new Chart(document.getElementById('yrVisitsChart').getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets:[{label:'จำนวนครั้ง',data:monthly.map(m=>m.visits),backgroundColor:'#d9770699',borderColor:'#d97706',borderWidth:2,borderRadius:6}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:CF}}},scales:{y:{beginAtZero:true,ticks:{font:CF}},x:{ticks:{font:CF}}}}
+  });
+
+  const tb=document.getElementById('yearlyTableBody');
+  const rows=monthly.map(m=>{
+    const hasData=m.days>0||m.revenue>0||m.visits>0;
+    const style=hasData?'':'color:#94a3b8';
+    return `<tr style="${style}">
+      <td class="font-semibold">${MNTH_S[m.m]} ${m.ceYear+543}</td>
+      <td>${m.days||'—'}</td>
+      ${NS.map(n=>`<td>${m.needles[n]||0}</td>`).join('')}
+      <td class="font-bold text-cyan-700">${m.totalN||'—'}</td>
+      <td>${m.visits||'—'}</td>
+      <td class="font-bold text-emerald-600">${m.revenue?'฿'+fmtMoney(m.revenue):'—'}</td>
+    </tr>`;
+  });
+  const totRow=`<tr class="bg-slate-50 font-bold border-t-2 border-slate-300">
+    <td>รวมปีงบ ${fyBE}</td>
+    <td>${monthly.reduce((s,m)=>s+m.days,0)}</td>
+    ${NS.map(n=>`<td>${monthly.reduce((s,m)=>s+(m.needles[n]||0),0)}</td>`).join('')}
+    <td class="text-cyan-700">${totN.toLocaleString()}</td>
+    <td>${totVis.toLocaleString()}</td>
+    <td class="text-emerald-600">฿${fmtMoney(totRev)}</td>
+  </tr>`;
+  tb.innerHTML=rows.join('')+totRow;
+}
+
+// ─────────────────────────────────────────────
+//  EXPORT EXCEL
+// ─────────────────────────────────────────────
+async function exportMonthlyExcel(){
+  const year=parseInt(document.getElementById('msYear').value);
+  const month=parseInt(document.getElementById('msMonth').value);
+  const ym=`${year}-${pad(month)}`;
+  const[recs,revDoc]=await Promise.all([db.getMonthRecords(year,month),db.getRevenue(ym)]);
+  const wb=XLSX.utils.book_new();
+  const header=['วันที่','13mm','25mm','40mm','50mm','75mm','เข็มรวม'];
+  const rows=recs.map(r=>[fmtDate(r.date),...NS.map(n=>r['n'+n]||0),sumN(r)]);
+  const totals=['รวม',...NS.map(n=>recs.reduce((s,r)=>s+(r['n'+n]||0),0)),recs.reduce((s,r)=>s+sumN(r),0)];
+  rows.push(totals);
+  const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+  XLSX.utils.sheet_add_aoa(ws,[[''],['รายได้',revDoc?.revenue||0,'บาท'],['จำนวนครั้ง',revDoc?.visits||0,'ครั้ง']],{origin:-1});
+  XLSX.utils.book_append_sheet(wb,ws,`${MNTH[month]} ${year+543}`);
+  XLSX.writeFile(wb,`AcuTrack_${year+543}_${pad(month)}.xlsx`);
+  toast('Export Excel สำเร็จ 📥','ok');
+}
+
+async function exportQuarterlyExcel(){
+  const fyBE=parseInt(document.getElementById('qsYear').value);
+  const ceY1=fyBE-544, ceY2=fyBE-543;
+  const [recs1,recs2]=await Promise.all([db.getYearRecords(ceY1),db.getYearRecords(ceY2)]);
+  const FQ=[
+    {months:[10,11,12],ceYear:ceY1},
+    {months:[1,2,3],   ceYear:ceY2},
+    {months:[4,5,6],   ceYear:ceY2},
+    {months:[7,8,9],   ceYear:ceY2},
+  ];
+  const qData=await Promise.all(FQ.map(async(fq,qi)=>{
+    const pool=fq.ceYear===ceY1?recs1:recs2;
+    const qRecs=pool.filter(r=>fq.months.includes(parseInt(r.date.split('-')[1])));
+    const needle=qRecs.reduce((s,r)=>s+sumN(r),0);
+    let revenue=0,visits=0;
+    for(const m of fq.months){const rv=await db.getRevenue(`${fq.ceYear}-${pad(m)}`);if(rv){revenue+=rv.revenue||0;visits+=rv.visits||0;}}
+    return{q:qi+1,needle,days:qRecs.length,revenue,visits};
+  }));
+  const wb=XLSX.utils.book_new();
+  const header=['ไตรมาส','ช่วงเวลา','เข็มรวม','จำนวนครั้ง','รายได้ (บาท)','วันที่บันทึก'];
+  const qPrd=[
+    `ต.ค. ${ceY1+543} – ธ.ค. ${ceY1+543}`,
+    `ม.ค. ${ceY2+543} – มี.ค. ${ceY2+543}`,
+    `เม.ย. ${ceY2+543} – มิ.ย. ${ceY2+543}`,
+    `ก.ค. ${ceY2+543} – ก.ย. ${ceY2+543}`,
+  ];
+  const rows=qData.map(d=>[`ไตรมาสที่ ${d.q} ปีงบ ${fyBE}`,qPrd[d.q-1],d.needle,d.visits,d.revenue,d.days]);
+  rows.push(['รวม','',qData.reduce((s,d)=>s+d.needle,0),qData.reduce((s,d)=>s+d.visits,0),qData.reduce((s,d)=>s+d.revenue,0),qData.reduce((s,d)=>s+d.days,0)]);
+  const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+  XLSX.utils.book_append_sheet(wb,ws,`ปีงบ ${fyBE}`);
+  XLSX.writeFile(wb,`AcuTrack_Q_FY${fyBE}.xlsx`);
+  toast('Export Excel สำเร็จ 📥','ok');
+}
+
+async function exportYearlyExcel(){
+  const fyBE=parseInt(document.getElementById('yrYear').value);
+  const ceY1=fyBE-544, ceY2=fyBE-543;
+  const [recs1,recs2]=await Promise.all([db.getYearRecords(ceY1),db.getYearRecords(ceY2)]);
+  const fyMonths=[
+    {m:10,ceYear:ceY1},{m:11,ceYear:ceY1},{m:12,ceYear:ceY1},
+    {m:1,ceYear:ceY2},{m:2,ceYear:ceY2},{m:3,ceYear:ceY2},
+    {m:4,ceYear:ceY2},{m:5,ceYear:ceY2},{m:6,ceYear:ceY2},
+    {m:7,ceYear:ceY2},{m:8,ceYear:ceY2},{m:9,ceYear:ceY2},
+  ];
+  const monthly=await Promise.all(fyMonths.map(async({m,ceYear})=>{
+    const pool=ceYear===ceY1?recs1:recs2;
+    const mRecs=pool.filter(r=>parseInt(r.date.split('-')[1])===m);
+    const rv=await db.getRevenue(`${ceYear}-${pad(m)}`);
+    return{m,ceYear,days:mRecs.length,needles:NS.reduce((o,n)=>({...o,[n]:mRecs.reduce((s,r)=>s+(r['n'+n]||0),0)}),{}),totalN:mRecs.reduce((s,r)=>s+sumN(r),0),revenue:rv?.revenue||0,visits:rv?.visits||0};
+  }));
+  const wb=XLSX.utils.book_new();
+  const header=['เดือน','วันที่บันทึก','13mm','25mm','40mm','50mm','75mm','เข็มรวม','จำนวนครั้ง','รายได้ (บาท)'];
+  const rows=monthly.map(m=>[`${MNTH_S[m.m]} ${m.ceYear+543}`,m.days,...NS.map(n=>m.needles[n]||0),m.totalN,m.visits,m.revenue]);
+  rows.push([`รวมปีงบ ${fyBE}`,monthly.reduce((s,m)=>s+m.days,0),...NS.map(n=>monthly.reduce((s,m)=>s+(m.needles[n]||0),0)),monthly.reduce((s,m)=>s+m.totalN,0),monthly.reduce((s,m)=>s+m.visits,0),monthly.reduce((s,m)=>s+m.revenue,0)]);
+  const ws=XLSX.utils.aoa_to_sheet([header,...rows]);
+  XLSX.utils.book_append_sheet(wb,ws,`ปีงบ ${fyBE}`);
+  XLSX.writeFile(wb,`AcuTrack_FY${fyBE}.xlsx`);
+  toast('Export Excel สำเร็จ 📥','ok');
+}
+
+
+// ─────────────────────────────────────────────
+//  EXPORT / IMPORT JSON BACKUP
+// ─────────────────────────────────────────────
+async function exportAllJson(){
+  const[recs,revs]=await Promise.all([db.getRecords('2000-01-01','2099-12-31'),db.getAllRevenues()]);
+  const data={dailyRecords:recs,monthlyRevenue:revs,exportedAt:new Date().toISOString()};
+  const a=document.createElement('a');
+  a.href='data:application/json,'+encodeURIComponent(JSON.stringify(data,null,2));
+  a.download=`AcuTrack_backup_${todayStr()}.json`;
+  a.click();
+  toast('Export JSON สำเร็จ 📤','ok');
+}
+
+async function importJsonData(e){
+  const file=e.target.files[0];if(!file)return;
+  const text=await file.text();
+  let data;
+  try{data=JSON.parse(text);}catch{toast('ไฟล์ JSON ไม่ถูกต้อง','err');return;}
+  if(!confirm(`นำเข้าข้อมูลจากไฟล์ ${file.name}?\nข้อมูลเดิมอาจถูกแทนที่`))return;
+  let dc=0,rc=0;
+  if(data.dailyRecords)for(const r of data.dailyRecords){await db.putRecord(r);dc++;}
+  if(data.monthlyRevenue)for(const r of data.monthlyRevenue){await db.putRevenue(r.yearMonth,r);rc++;}
+  toast(`นำเข้าสำเร็จ: เข็ม ${dc} รายการ, รายได้ ${rc} รายการ`,'ok');
+  e.target.value='';
+  await refreshStats();await renderRecentTable();
+}
+
+async function clearAllData(){
+  if(!confirm('ลบข้อมูลทั้งหมด? การกระทำนี้ไม่สามารถย้อนกลับได้!'))return;
+  if(!confirm('ยืนยันอีกครั้ง: ลบข้อมูลทั้งหมดจริงๆ?'))return;
+  localStorage.removeItem('dailyRecords');
+  localStorage.removeItem('monthlyRevenue');
+  if(fbOn){
+    const[s1,s2]=await Promise.all([fbDb.collection('dailyRecords').get(),fbDb.collection('monthlyRevenue').get()]);
+    const batch=fbDb.batch();
+    s1.docs.forEach(d=>batch.delete(d.ref));
+    s2.docs.forEach(d=>batch.delete(d.ref));
+    await batch.commit();
+  }
+  toast('ล้างข้อมูลทั้งหมดแล้ว','info');
+  await refreshStats();await renderRecentTable();
+}
+
+// ─────────────────────────────────────────────
+//  TAB 6 — SETTINGS
+// ─────────────────────────────────────────────
+function loadSettingsTab(){
+  const name=localStorage.getItem('clinicName')||'';
+  document.getElementById('settingClinicName').value=name;
+  const cfg=localStorage.getItem('fbConfig')||'';
+  document.getElementById('fbConfigInput').value=cfg;
+  updateFbStatusUI();
+}
+
+function saveGeneralSettings(){
+  const name=document.getElementById('settingClinicName').value.trim();
+  localStorage.setItem('clinicName',name);
+  document.getElementById('clinicNameDisplay').textContent=name||'คลินิกฝังเข็ม';
+  toast('บันทึกการตั้งค่าสำเร็จ','ok');
+}
+
+async function connectFirebase(){
+  const raw=document.getElementById('fbConfigInput').value.trim();
+  if(!raw){toast('กรุณากรอก Firebase Config','err');return;}
+  let cfg;
+  try{cfg=JSON.parse(raw);}catch{toast('Firebase Config JSON ไม่ถูกต้อง','err');return;}
+  try{
+    if(firebase.apps.length)await firebase.app().delete();
+    firebase.initializeApp(cfg);
+    fbDb=firebase.firestore();
+    await fbDb.collection('_ping').doc('test').set({t:Date.now()});
+    fbOn=true;
+    localStorage.setItem('fbConfig',raw);
+    updateFbStatusUI();
+    toast('เชื่อมต่อ Firebase สำเร็จ ☁️','ok');
+  }catch(e){toast('เชื่อมต่อ Firebase ไม่สำเร็จ: '+e.message,'err');}
+}
+
+async function disconnectFirebase(){
+  if(firebase.apps.length)try{await firebase.app().delete();}catch{}
+  fbDb=null;fbOn=false;
+  localStorage.removeItem('fbConfig');
+  updateFbStatusUI();
+  toast('ตัดการเชื่อมต่อ Firebase แล้ว','info');
+}
+
+function updateFbStatusUI(){
+  const on=fbOn;
+  document.getElementById('fbDot').className='fb-dot '+(on?'fb-on':'fb-off');
+  document.getElementById('fbStatus').textContent=on?'Firebase Connected':'LocalStorage';
+  document.getElementById('fbDotSettings').className='fb-dot '+(on?'fb-on':'fb-off');
+  document.getElementById('fbStatusSettings').textContent=on?'เชื่อมต่อ Firebase แล้ว ☁️':'ยังไม่ได้เชื่อมต่อ (ใช้ LocalStorage)';
+}
+
+// ─────────────────────────────────────────────
+//  YEAR SELECTORS (populate options)
+// ─────────────────────────────────────────────
+function populateYearSelectors(){
+  const now=new Date();
+  const curCE=now.getFullYear();
+  const curMonth=now.getMonth()+1;
+
+  // ── default & ช่วงปี: เริ่มจากปี พ.ศ. 2568 ทุก selector ──────────────────
+  const minCE=2025;          // BE 2568 → CE 2025
+  const defFyBE=2568;        // ปีงบประมาณเริ่มต้น
+  const curFyBE=curMonth>=10?curCE+544:curCE+543;
+
+  // msYear: สรุปรายเดือน → default ก.ย. 2568
+  const elMs=document.getElementById('msYear');
+  elMs.innerHTML='';
+  for(let yr=minCE;yr<=curCE+1;yr++)
+    elMs.innerHTML+=`<option value="${yr}"${yr===minCE?' selected':''}>${yr+543}</option>`;
+  document.getElementById('msMonth').value=9;
+
+  // qsYear, yrYear: ปีงบประมาณ → default 2568, ตัดปีก่อน 2568 ออก
+  ['qsYear','yrYear'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.innerHTML='';
+    for(let fy=defFyBE;fy<=curFyBE+1;fy++)
+      el.innerHTML+=`<option value="${fy}"${fy===defFyBE?' selected':''}>${fy}</option>`;
+  });
+
+  // calendar เริ่มต้น ก.ย. 2568 — renderCalendar() จะถูกเรียกใน init()
+}
+
+// ─────────────────────────────────────────────
+//  HEADER DATE
+// ─────────────────────────────────────────────
+function updateHeaderDate(){
+  const d=new Date();
+  const days=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+  document.getElementById('headerDate').textContent=`วัน${days[d.getDay()]}ที่ ${d.getDate()} ${MNTH[d.getMonth()+1]} ${d.getFullYear()+543}`;
+}
+
+// ─────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────
+async function init(){
+  updateHeaderDate();
+  populateYearSelectors();
+  renderCalendar(); // init calendar with default Sep 2025
+  // Restore clinic name
+  const name=localStorage.getItem('clinicName');
+  if(name)document.getElementById('clinicNameDisplay').textContent=name;
+  // Auto-connect Firebase if config saved
+  const savedCfg=localStorage.getItem('fbConfig');
+  if(savedCfg){
+    try{
+      const cfg=JSON.parse(savedCfg);
+      if(firebase.apps.length)await firebase.app().delete();
+      firebase.initializeApp(cfg);
+      fbDb=firebase.firestore();
+      await fbDb.collection('_ping').doc('test').set({t:Date.now()});
+      fbOn=true;
+      updateFbStatusUI();
+    }catch(e){console.warn('Auto Firebase connect failed:',e.message);}
+  }
+  await loadDailyTab();
+}
+
+init();
+</script>
+</body>
+</html>
