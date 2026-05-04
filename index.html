@@ -1044,23 +1044,23 @@ function populateYearSelectors(){
   const curMonth=now.getMonth()+1;
 
   // ── default & ช่วงปี: เริ่มจากปี พ.ศ. 2568 ทุก selector ──────────────────
-  const minCE=2025;          // BE 2568 → CE 2025
-  const defFyBE=2568;        // ปีงบประมาณเริ่มต้น
-  const curFyBE=curMonth>=10?curCE+544:curCE+543;
+  const minCE=2025;          // BE 2568 → CE 2025 (ปีเริ่มต้นของ dropdown)
+  const curFyBE=curMonth>=10?curCE+544:curCE+543;  // ปีงบประมาณปัจจุบัน
+  const minFyBE=2568;        // ปีงบประมาณต่ำสุดใน dropdown
 
-  // msYear: สรุปรายเดือน → default ก.ย. 2568
+  // msYear: สรุปรายเดือน → default เดือนปัจจุบัน
   const elMs=document.getElementById('msYear');
   elMs.innerHTML='';
   for(let yr=minCE;yr<=curCE+1;yr++)
-    elMs.innerHTML+=`<option value="${yr}"${yr===minCE?' selected':''}>${yr+543}</option>`;
-  document.getElementById('msMonth').value=9;
+    elMs.innerHTML+=`<option value="${yr}"${yr===curCE?' selected':''}>${yr+543}</option>`;
+  document.getElementById('msMonth').value=curMonth;
 
-  // qsYear, yrYear: ปีงบประมาณ → default 2568, ตัดปีก่อน 2568 ออก
+  // qsYear, yrYear: ปีงบประมาณ → default ปีงบปัจจุบัน
   ['qsYear','yrYear'].forEach(id=>{
     const el=document.getElementById(id);
     el.innerHTML='';
-    for(let fy=defFyBE;fy<=curFyBE+1;fy++)
-      el.innerHTML+=`<option value="${fy}"${fy===defFyBE?' selected':''}>${fy}</option>`;
+    for(let fy=minFyBE;fy<=curFyBE+1;fy++)
+      el.innerHTML+=`<option value="${fy}"${fy===curFyBE?' selected':''}>${fy}</option>`;
   });
 
   // calendar เริ่มต้น ก.ย. 2568 — renderCalendar() จะถูกเรียกใน init()
