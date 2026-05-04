@@ -557,7 +557,7 @@ async function deleteRecord(date){
   await db.delRecord(date);await renderRecentTable();await refreshStats();toast('ลบข้อมูลแล้ว','info');
 }
 // ── Calendar (พ.ศ.) ────────────────────────────────────────────────────────
-let _calYear=2025, _calMonth=9, _calSel='2025-09-01';
+const _today=new Date(); let _calYear=_today.getFullYear(), _calMonth=_today.getMonth()+1, _calSel=_today.toISOString().slice(0,10);
 
 function getDDate(){ return _calSel; }
 
